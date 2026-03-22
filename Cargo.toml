@@ -1,6 +1,6 @@
 [package]
 name = "blake512-hash"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Pure Rust implementation of the BLAKE-512 hash function (SHA-3 finalist)"
 license = "MIT"
