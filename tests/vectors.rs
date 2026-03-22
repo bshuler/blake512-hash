@@ -599,6 +599,87 @@ fn no_trivial_collisions_small_inputs() {
 // Section 9: Large / stress inputs
 // ==========================================================================
 
+// ==========================================================================
+// Section 9a: NIST submission test vectors
+// ==========================================================================
+
+#[test]
+fn nist_vector_72_bytes() {
+    // From the BLAKE NIST SHA-3 submission: 72 sequential bytes (0x00..0x47).
+    let data: Vec<u8> = (0u8..72).collect();
+    let hash = Blake512::digest(&data);
+    assert_eq!(
+        hash[..],
+        hex!(
+            "180cefaba3f6408d6dc8576fbb24ab90"
+            "058b9b6abf8f6cdb5a37edbc4a061623"
+            "11ea8ebbac8faa40612522a08a565071"
+            "71a6f86864a11ee4f17f2e9caf9ab0a0"
+        )
+    );
+}
+
+#[test]
+fn nist_vector_144_bytes() {
+    // From the BLAKE NIST SHA-3 submission: 144 sequential bytes (0x00..0x8F).
+    // Crosses the 128-byte block boundary.
+    let data: Vec<u8> = (0u8..144).collect();
+    let hash = Blake512::digest(&data);
+    assert_eq!(
+        hash[..],
+        hex!(
+            "222b2ea94aa00b81582757382164bcf6"
+            "1570744e38421a3086ea0a40e6411c44"
+            "f09dad7bb4c6773ba2b05e5f90cb8564"
+            "8478db57a5fdba03c01cff22e3d84e7a"
+        )
+    );
+}
+
+// ==========================================================================
+// Section 9b: Trait API tests
+// ==========================================================================
+
+#[test]
+fn output_size_user_returns_64() {
+    use digest::OutputSizeUser;
+    assert_eq!(<Blake512 as OutputSizeUser>::output_size(), 64);
+}
+
+#[test]
+fn finalize_into_direct() {
+    use digest::generic_array::GenericArray;
+
+    let mut hasher = Blake512::new();
+    Digest::update(&mut hasher, b"abc");
+    let mut out = GenericArray::default();
+    digest::FixedOutput::finalize_into(hasher, &mut out);
+
+    assert_eq!(
+        out[..],
+        hex!(
+            "14266c7c704a3b58fb421ee69fd005fc"
+            "c6eeff742136be67435df995b7c986e7"
+            "cbde4dbde135e7689c354d2bc5b8d260"
+            "536c554b4f84c118e61efc576fed7cd3"
+        )
+    );
+}
+
+#[test]
+fn hash_marker_compiles() {
+    // Verify Blake512 satisfies the full Digest trait bound (which requires HashMarker).
+    fn requires_digest<H: Digest>(data: &[u8]) -> Vec<u8> {
+        H::digest(data).to_vec()
+    }
+    let result = requires_digest::<Blake512>(b"abc");
+    assert_eq!(result.len(), 64);
+}
+
+// ==========================================================================
+// Section 9c: Large / stress inputs
+// ==========================================================================
+
 #[test]
 fn large_input_10000_bytes() {
     let data = [0xFFu8; 10000];

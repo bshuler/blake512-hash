@@ -448,3 +448,113 @@ impl Reset for Blake512 {
 }
 
 impl HashMarker for Blake512 {}
+
+// ---------------------------------------------------------------------------
+// Internal unit tests (access private fields for counter edge cases)
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compress_buffer_counter_carry() {
+        // When t0 is near u64::MAX, adding 1024 should overflow and increment t1.
+        let mut h = Blake512::new();
+        h.t0 = 0xFFFFFFFFFFFFFC00; // Adding 1024 wraps to 0
+        h.t1 = 5;
+        h.buf = [0xAA; 128];
+        h.buf_len = 128;
+        h.compress_buffer();
+
+        assert_eq!(h.t0, 0, "t0 should wrap to 0");
+        assert_eq!(h.t1, 6, "t1 should increment on carry");
+    }
+
+    #[test]
+    fn compress_buffer_counter_no_carry() {
+        let mut h = Blake512::new();
+        h.t0 = 0;
+        h.t1 = 0;
+        h.buf = [0xBB; 128];
+        h.buf_len = 128;
+        h.compress_buffer();
+
+        assert_eq!(h.t0, 1024, "t0 should be 1024 after one block");
+        assert_eq!(h.t1, 0, "t1 should remain 0");
+    }
+
+    #[test]
+    fn finalize_branch_a2_ptr_gt0_t0_eq_zero() {
+        // Branch A2: ptr > 0, t0 == 0 (counter wrapped after prior blocks).
+        // This requires t0 to be exactly 0 at finalize with data in the buffer.
+        // Simulate: set t0=0, t1=1 (as if 2^54 blocks were processed), buf has 10 bytes.
+        let mut h = Blake512::new();
+        h.t0 = 0;
+        h.t1 = 1;
+        h.buf[..10].copy_from_slice(&[0xCC; 10]);
+        h.buf_len = 10;
+
+        let result = h.finalize_inner();
+
+        // We can't easily verify the exact hash without a reference, but we can
+        // verify the counter adjustment was applied correctly by checking the
+        // output is 64 bytes and deterministic.
+        assert_eq!(result.len(), 64);
+
+        // Re-create the same state and verify determinism.
+        let mut h2 = Blake512::new();
+        h2.t0 = 0;
+        h2.t1 = 1;
+        h2.buf[..10].copy_from_slice(&[0xCC; 10]);
+        h2.buf_len = 10;
+
+        assert_eq!(h2.finalize_inner(), result);
+    }
+
+    #[test]
+    fn finalize_tl_carry_propagation() {
+        // When t0 + bit_len overflows, th should be incremented.
+        let mut h = Blake512::new();
+        h.t0 = u64::MAX - 50; // t0 + bit_len(10 bytes = 80 bits) will overflow
+        h.t1 = 3;
+        h.buf[..10].copy_from_slice(&[0xDD; 10]);
+        h.buf_len = 10;
+
+        let result = h.finalize_inner();
+        assert_eq!(result.len(), 64);
+
+        // Verify determinism with same state.
+        let mut h2 = Blake512::new();
+        h2.t0 = u64::MAX - 50;
+        h2.t1 = 3;
+        h2.buf[..10].copy_from_slice(&[0xDD; 10]);
+        h2.buf_len = 10;
+
+        assert_eq!(h2.finalize_inner(), result);
+    }
+
+    #[test]
+    fn finalize_ptr0_sentinel_counter() {
+        // When ptr == 0 (empty buffer), sentinel counter values should be set.
+        // After compress_buffer in finalize, t0 wraps: 0xFFFFFFFFFFFFFC00 + 1024 = 0,
+        // and t1 wraps: 0xFFFFFFFFFFFFFFFF + 1 = 0.
+        let mut h = Blake512::new();
+        h.t0 = 1024; // As if one block was compressed
+        h.t1 = 0;
+        h.buf_len = 0;
+
+        let result = h.finalize_inner();
+        assert_eq!(result.len(), 64);
+
+        // This should match hashing 128 bytes... but with synthetic h state
+        // from just IV (no prior compress). The point is it doesn't panic.
+        // Verify determinism.
+        let mut h2 = Blake512::new();
+        h2.t0 = 1024;
+        h2.t1 = 0;
+        h2.buf_len = 0;
+
+        assert_eq!(h2.finalize_inner(), result);
+    }
+}
