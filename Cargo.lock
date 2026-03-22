@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "blake512-hash"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "digest",
  "hex-literal",
