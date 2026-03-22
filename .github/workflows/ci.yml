@@ -72,13 +72,14 @@ jobs:
       - run: cargo check --target thumbv7em-none-eabihf --no-default-features
 
   msrv:
-    name: MSRV (1.72)
+    name: MSRV (1.81)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.72"
+          toolchain: "1.81"
+      - run: cargo generate-lockfile
       - run: cargo check
 
   audit:
