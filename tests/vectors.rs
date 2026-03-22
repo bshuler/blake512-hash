@@ -682,10 +682,19 @@ fn hash_marker_compiles() {
 
 #[test]
 fn large_input_10000_bytes() {
+    // 10000 x 0xFF — exercises 78 block compressions.
+    // Verified against sphlib C reference.
     let data = [0xFFu8; 10000];
     let hash = Blake512::digest(data);
-    assert_eq!(hash.len(), 64);
-    assert_ne!(&hash[..], &[0u8; 64][..]);
+    assert_eq!(
+        hash[..],
+        hex!(
+            "c0feced3710b093be08337e831205fc8"
+            "caf82dcdd3d5650a75c19d1c6b0183f7"
+            "c381c52d87299366c85f4c30592a2307"
+            "f7f969b4682dd0d8b27012813186c108"
+        )
+    );
 }
 
 #[test]
