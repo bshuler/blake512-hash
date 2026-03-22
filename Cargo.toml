@@ -1,0 +1,18 @@
+[package]
+name = "blake512-hash"
+version = "0.1.0"
+edition = "2021"
+description = "Pure Rust implementation of the BLAKE-512 hash function (SHA-3 finalist)"
+license = "MIT"
+repository = "https://github.com/bshuler/blake512-hash"
+homepage = "https://github.com/bshuler/blake512-hash"
+documentation = "https://docs.rs/blake512-hash"
+keywords = ["cryptography", "hash", "blake", "quark", "no-std"]
+categories = ["cryptography", "no-std"]
+readme = "README.md"
+
+[dependencies]
+digest = { version = "0.10", default-features = false }
+
+[dev-dependencies]
+hex-literal = "0.4"
